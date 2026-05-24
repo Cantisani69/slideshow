@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Slideshow">
+  <title>Slideshow</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: #000;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, 'Helvetica Neue', sans-serif;
+    }
+
+    /* ── SETUP SCREEN ── */
+    #setup {
+      position: fixed;
+      inset: 0;
+      background: #0a0a0f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 32px;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    #setup h1 {
+      font-size: 13px;
+      letter-spacing: 4px;
+      color: rgba(255,255,255,0.3);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    #setup h2 {
+      font-size: 34px;
+      font-weight: 200;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    #setup p {
+      font-size: 15px;
+      color: rgba(255,255,255,0.35);
+      text-align: center;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    .setup-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 24px 28px 28px;
+      width: 100%;
+      max-width: 440px;
+      margin-bottom: 14px;
+    }
+
+    .setup-label {
+      font-size: 11px;
+      letter-spacing: 2.5px;
+      color: rgba(255,255,255,0.35);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    /* Photo picker */
+    #photo-drop {
+      border: 1.5px dashed rgba(255,255,255,0.2);
+      border-radius: 14px;
+      padding: 24px 20px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+    }
+    #photo-drop:active { background: rgba(255,255,255,0.05); }
+    #photo-drop .drop-icon { font-size: 30px; margin-bottom: 8px; }
+    #photo-drop .drop-text { font-size: 15px; color: rgba(255,255,255,0.6); }
+    #photo-drop .drop-sub  { font-size: 12px; color: rgba(255,255,255,0.25); margin-top: 4px; }
+    #photo-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+    #photo-count {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0 0;
+    }
+    #photo-count .count-pill {
+      background: rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+    }
+    #photo-count .clear-btn {
+      font-size: 12px;
+      color: rgba(255,100,100,0.6);
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,100,100,0.2);
+    }
+
+    /* Sliders */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .slider-row input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.15);
+      outline: none;
+    }
+    .slider-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .slider-val {
+      font-size: 20px;
+      font-weight: 200;
+      color: #fff;
+      min-width: 52px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .slider-val span { font-size: 12px; color: rgba(255,255,255,0.35); margin-left: 2px; }
+
+    .sublabel {
+      font-size: 11px;
+      color: rgba(255,255,255,0.2);
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
+    /* Start button */
+    #start-btn {
+      width: 100%;
+      max-width: 440px;
+      padding: 18px;
+      border: none;
+      border-radius: 16px;
+      background: #fff;
+      color: #000;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      opacity: 0.3;
+      pointer-events: none;
+      margin-top: 4px;
+    }
+    #start-btn.ready { opacity: 1; pointer-events: all; }
+    #start-btn:active { transform: scale(0.98); }
+
+    /* ── SLIDESHOW ── */
+    #slideshow {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: none;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 1.3s ease-in-out;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      will-change: opacity;
+    }
+    .slide.active { opacity: 1; }
+
+    /* contain = show whole photo, no crop */
+    .slide img {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display: block;
+      will-change: transform;
+      transform-origin: center center;
+    }
+
+    /* Ken Burns — scale driven by JS variable set at runtime */
+    .slide.active.kb-in  img { animation: kb-in  var(--dur) ease-in-out forwards; }
+    .slide.active.kb-out img { animation: kb-out var(--dur) ease-in-out forwards; }
+
+    @keyframes kb-in  { from { transform: scale(var(--zoom-start)); } to { transform: scale(1); } }
+    @keyframes kb-out { from { transform: scale(1); } to { transform: scale(var(--zoom-start)); } }
+
+    /* HUD */
+    #hud {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    #hud.visible { opacity: 1; pointer-events: all; }
+
+    #hud-top {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 52px 28px 28px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    #hud-bottom {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 28px 28px 52px;
+      background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .hud-btn {
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 50px;
+      padding: 10px 20px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .hud-btn:active { background: rgba(255,255,255,0.25); }
+
+    #slide-counter {
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
+      padding-top: 4px;
+    }
+
+    #progress-bar {
+      position: fixed;
+      bottom: 0; left: 0;
+      height: 2px;
+      background: rgba(255,255,255,0.55);
+      width: 0%;
+      z-index: 60;
+    }
+  </style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup">
+  <h1>Your Photos</h1>
+  <h2>Slideshow</h2>
+  <p>Pick photos, set timing and zoom,<br>then enjoy the show.</p>
+
+  <div class="setup-card">
+    <div class="setup-label">Photos</div>
+    <div id="photo-drop">
+      <input type="file" id="photo-input" accept="image/*" multiple>
+      <div class="drop-icon">🖼️</div>
+      <div class="drop-text">Tap to choose photos</div>
+      <div class="drop-sub">Select as many as you like — shown in full, uncropped</div>
+    </div>
+    <div id="photo-count">
+      <div class="count-pill" id="count-pill">📸 0 photos</div>
+      <div class="clear-btn" id="clear-btn">Remove all</div>
+    </div>
+  </div>
+
+  <div class="setup-card">
+    <div class="setup-label">Seconds per photo</div>
+    <div class="slider-row">
+      <input type="range" id="dur-slider" min="2" max="20" value="5" step="1">
+      <div class="slider-val" id="dur-val">5<span>s</span></div>
+    </div>
+  </div>
+
+  <div class="setup-card">
+    <div class="setup-label">Zoom amount</div>
+    <div class="slider-row">
+      <input type="range" id="zoom-slider" min="0" max="30" value="8" step="1">
+      <div class="slider-val" id="zoom-val">8<span>%</span></div>
+    </div>
+    <div class="sublabel">0% = no zoom &nbsp;·&nbsp; 8% = gentle &nbsp;·&nbsp; 20%+ = dramatic<br>Zoom stays within the photo — nothing gets cropped.</div>
+  </div>
+
+  <button id="start-btn">Start Slideshow</button>
+</div>
+
+<!-- SLIDESHOW -->
+<div id="slideshow">
+  <div id="progress-bar"></div>
+  <div id="hud">
+    <div id="hud-top">
+      <button class="hud-btn" id="exit-btn">✕ Exit</button>
+      <div id="slide-counter">1 / 1</div>
+    </div>
+    <div id="hud-bottom">
+      <button class="hud-btn" id="prev-btn">← Prev</button>
+      <button class="hud-btn" id="pause-btn">⏸ Pause</button>
+      <button class="hud-btn" id="next-btn">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var images      = [];
+  var current     = 0;
+  var duration    = 5;
+  var zoomPct     = 8;
+  var paused      = false;
+  var timer       = null;
+  var hudTimeout  = null;
+  var progressRAF = null;
+  var progressStart = null;
+
+  var photoInput  = document.getElementById('photo-input');
+  var photoCount  = document.getElementById('photo-count');
+  var countPill   = document.getElementById('count-pill');
+  var clearBtn    = document.getElementById('clear-btn');
+  var durSlider   = document.getElementById('dur-slider');
+  var durVal      = document.getElementById('dur-val');
+  var zoomSlider  = document.getElementById('zoom-slider');
+  var zoomVal     = document.getElementById('zoom-val');
+  var startBtn    = document.getElementById('start-btn');
+  var setupEl     = document.getElementById('setup');
+  var slideshowEl = document.getElementById('slideshow');
+  var hud         = document.getElementById('hud');
+  var counter     = document.getElementById('slide-counter');
+  var pauseBtn    = document.getElementById('pause-btn');
+  var exitBtn     = document.getElementById('exit-btn');
+  var prevBtn     = document.getElementById('prev-btn');
+  var nextBtn     = document.getElementById('next-btn');
+  var progressBar = document.getElementById('progress-bar');
+
+  // ── SETUP ──
+
+  photoInput.addEventListener('change', function () {
+    var files = Array.from(this.files);
+    if (!files.length) return;
+    images.forEach(URL.revokeObjectURL);
+    images = shuffle(files.map(function(f){ return URL.createObjectURL(f); }));
+    countPill.textContent = '📸 ' + images.length + ' photo' + (images.length !== 1 ? 's' : '') + ' selected';
+    photoCount.style.display = 'flex';
+    startBtn.classList.add('ready');
+  });
+
+  clearBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    images.forEach(URL.revokeObjectURL);
+    images = [];
+    photoInput.value = '';
+    photoCount.style.display = 'none';
+    startBtn.classList.remove('ready');
+  });
+
+  durSlider.addEventListener('input', function () {
+    duration = +this.value;
+    durVal.innerHTML = duration + '<span>s</span>';
+  });
+
+  zoomSlider.addEventListener('input', function () {
+    zoomPct = +this.value;
+    zoomVal.innerHTML = zoomPct + '<span>%</span>';
+  });
+
+  startBtn.addEventListener('click', function () {
+    if (!images.length) return;
+    startSlideshow();
+  });
+
+  // ── SLIDESHOW ──
+
+  function startSlideshow() {
+    current = 0;
+    paused  = false;
+    setupEl.style.display   = 'none';
+    slideshowEl.style.display = 'block';
+    // CSS variables
+    document.documentElement.style.setProperty('--dur', duration + 's');
+    // zoom-start = 1 + zoomPct/100  (e.g. 8% → 1.08)
+    document.documentElement.style.setProperty('--zoom-start', (1 + zoomPct / 100).toFixed(3));
+    buildSlide(current);
+    updateCounter();
+    scheduleNext();
+    startProgress();
+    showHudBriefly();
+  }
+
+  function buildSlide(index) {
+    var slide = document.createElement('div');
+    var dir   = index % 2 === 0 ? 'kb-in' : 'kb-out';
+    slide.className = 'slide ' + dir;
+
+    var img = document.createElement('img');
+    img.src = images[index];
+    slide.appendChild(img);
+    slideshowEl.appendChild(slide);
+
+    // Trim old slides — keep max 2
+    var all = slideshowEl.querySelectorAll('.slide');
+    if (all.length > 2) all[0].remove();
+
+    // Trigger fade in on next paint
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        slide.classList.add('active');
+      });
+    });
+    return slide;
+  }
+
+  function goTo(index) {
+    // Fade out existing slides
+    var old = slideshowEl.querySelectorAll('.slide');
+    old.forEach(function(s){ s.classList.remove('active'); });
+    setTimeout(function(){ old.forEach(function(s){ s.remove(); }); }, 1400);
+
+    current = ((index % images.length) + images.length) % images.length;
+    buildSlide(current);
+    updateCounter();
+    startProgress();
+  }
+
+  function scheduleNext() {
+    clearTimeout(timer);
+    if (paused) return;
+    timer = setTimeout(function () {
+      goTo(current + 1);
+      scheduleNext();
+    }, duration * 1000);
+  }
+
+  function startProgress() {
+    cancelAnimationFrame(progressRAF);
+    progressBar.style.transition = 'none';
+    progressBar.style.width = '0%';
+    var d = duration * 1000;
+    requestAnimationFrame(function (now) {
+      progressStart = now;
+      function tick(now2) {
+        if (paused) return;
+        var pct = Math.min(100, ((now2 - progressStart) / d) * 100);
+        progressBar.style.width = pct + '%';
+        if (pct < 100) progressRAF = requestAnimationFrame(tick);
+      }
+      progressRAF = requestAnimationFrame(tick);
+    });
+  }
+
+  function updateCounter() {
+    counter.textContent = (current + 1) + ' / ' + images.length;
+  }
+
+  // ── HUD ──
+
+  slideshowEl.addEventListener('click', function (e) {
+    if (e.target.closest('.hud-btn')) return;
+    hud.classList.toggle('visible');
+    clearTimeout(hudTimeout);
+    if (hud.classList.contains('visible')) {
+      hudTimeout = setTimeout(function(){ hud.classList.remove('visible'); }, 3500);
+    }
+  });
+
+  function showHudBriefly() {
+    hud.classList.add('visible');
+    hudTimeout = setTimeout(function(){ hud.classList.remove('visible'); }, 2500);
+  }
+
+  pauseBtn.addEventListener('click', function () {
+    paused = !paused;
+    pauseBtn.textContent = paused ? '▶ Play' : '⏸ Pause';
+    if (!paused) { scheduleNext(); startProgress(); }
+    else { clearTimeout(timer); cancelAnimationFrame(progressRAF); }
+  });
+
+  nextBtn.addEventListener('click', function () {
+    clearTimeout(timer); cancelAnimationFrame(progressRAF);
+    goTo(current + 1);
+    if (!paused) scheduleNext();
+    showHudBriefly();
+  });
+
+  prevBtn.addEventListener('click', function () {
+    clearTimeout(timer); cancelAnimationFrame(progressRAF);
+    goTo(current - 1);
+    if (!paused) scheduleNext();
+    showHudBriefly();
+  });
+
+  exitBtn.addEventListener('click', function () {
+    clearTimeout(timer); cancelAnimationFrame(progressRAF);
+    paused = false;
+    pauseBtn.textContent = '⏸ Pause';
+    slideshowEl.querySelectorAll('.slide').forEach(function(s){ s.remove(); });
+    slideshowEl.style.display = 'none';
+    setupEl.style.display = 'flex';
+    hud.classList.remove('visible');
+  });
+
+  // ── UTILS ──
+
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+})();
+</script>
+</body>
+</html>
